@@ -1,0 +1,19 @@
+[package]
+name = 'rust_arango_trigger'
+version = '0.1.0'
+edition = '2021'
+authors = ['Foretag Inc. <contact@foret.ag>', 'Chiru B <chirub@foretag.co>']
+repository = 'https://github.com/ForetagInc/rust-arango'
+keywords = ['arango', 'arangoDB', 'trigger', 'database']
+categories = ['database']
+exclude = ['.gitignore', '.github']
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+bench = true
+
+[dependencies]
+hyper = { version = '0.14', features = ['client', 'tcp', 'http2'] }
+serde = '1'
+serde_json = '1'

@@ -6,6 +6,7 @@ fn setup_trigger() {
 
 	trigger.subscribe(vec![
 		TriggerConfig::new("users"),
-		TriggerConfig::new_with_events("users2", ["insert/update"]),
+		TriggerConfig::new_with_events("users2", vec!["insert/update"]),
+		TriggerConfig::new_with_events_and_keys("users2", vec!["insert/update"], vec!["252525"]),
 	]);
 }

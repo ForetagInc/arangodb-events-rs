@@ -23,12 +23,12 @@ fn main() {
 
 	// Subscribe to only insert/update events on the users collection
 	trigger.subscribe(vec![
-		TriggerConfig::new_with_events("users", ["insert/update"])
+		TriggerConfig::new_with_events("users", vec!["insert/update"])
 	]);
 
 	// Subscribe to only delete events on the users collection with the key "252525"
 	trigger.subscribe(vec![
-		TriggerConfig::new_with_events_and_keys("users", ["insert/update"], ["252525"]),
+		TriggerConfig::new_with_events_and_keys("users", vec!["insert/update"], vec!["252525"]),
 	]);
 
 	// Unsubscribe from all events on the users collection
@@ -38,12 +38,12 @@ fn main() {
 
 	// Unsubscribe from only delete events on the users collection
 	trigger.unsubscribe(vec![
-		TriggerConfig::new_with_events("users", ["delete"])
+		TriggerConfig::new_with_events("users", vec!["delete"])
 	]);
 
 	// Unsubscribe from only delete events on the users collection with the key "252525"
 	trigger.unsubscribe(vec![
-		TriggerConfig::new_with_events_and_keys("users", ["delete"], ["252525"])
+		TriggerConfig::new_with_events_and_keys("users", vec!["delete"], vec!["252525"])
 	]);
 
 	trigger.start();

@@ -1,5 +1,4 @@
-pub(crate) mod connection;
+pub mod config;
+pub(crate) use config::TriggerConfig;
 
-fn main() {
-	println!("Hello, world!");
-}
+pub mod connection;

@@ -3,11 +3,13 @@ use std::str::FromStr;
 use hyper::{body::Buf, Client as HTTPClient, Request};
 use serde::Deserialize;
 
+use crate::TriggerConfig;
+
 trait EventEmitter {
 	fn on(&self, event: &str, listener: Box<dyn Fn(&str)>);
 }
 
-pub struct Connection {
+pub struct Trigger {
 	pub host: String,
 	pub database: Option<String>,
 	pub collections: Option<Vec<String>>,
@@ -16,7 +18,7 @@ pub struct Connection {
 	started: bool,
 }
 
-impl Default for Connection {
+impl Default for Trigger {
 	fn default() -> Self {
 		Self {
 			host: String::from("http://localhost:8529/"),
@@ -27,7 +29,15 @@ impl Default for Connection {
 	}
 }
 
-impl Connection {
+impl Trigger {
+	pub fn new(host: &str, database: &str) -> Self {
+		Self {
+			host: host.to_string(),
+			database: Some(database.to_string()),
+			..Default::default()
+		}
+	}
+
 	async fn start_logger_state(mut self) -> Result<(), ()> {
 		let logger_state_path = hyper::Uri::from_str(
 			format!(
@@ -49,24 +59,25 @@ impl Connection {
 
 		let client = HTTPClient::new();
 
-		let logger_request = client.get(logger_state_path.unwrap_or_default()).await?;
+		// let logger_request = client.get(logger_state_path.unwrap_or_default()).await?;
 
-		let logger_response = hyper::body::aggregate(logger_request).await?;
+		// let logger_response = hyper::body::aggregate(logger_request).await?;
 
-		let res = serde_json::from_reader(logger_response.reader())?;
+		// let res = serde_json::from_reader(logger_response.reader())?;
 
-		Ok(res)
+		Ok(())
 	}
 
-	pub fn start(mut self) {
+	pub async fn start(mut self) {
 		self.started = true;
+		self.start_logger_state().await;
 	}
 
 	pub fn stop(mut self) {
 		self.started = false;
 	}
 
-	pub fn subscribe(&self) {}
+	pub fn subscribe(&self, config: Vec<TriggerConfig>) {}
 
-	pub fn unsubscribe(&self, collection: Vec<&str>) {}
+	pub fn unsubscribe(&self, config: Vec<TriggerConfig>) {}
 }

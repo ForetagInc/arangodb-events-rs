@@ -1,4 +1,5 @@
 pub mod config;
-pub(crate) use config::TriggerConfig;
+pub use config::TriggerConfig;
 
-pub mod connection;
+pub mod trigger;
+pub use trigger::Trigger;

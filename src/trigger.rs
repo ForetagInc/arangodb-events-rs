@@ -1,83 +1,109 @@
-use std::str::FromStr;
+use hyper::http::request::Builder as HttpRequestBuilder;
+use hyper::{Body, Client, Request, Response, StatusCode, Uri};
 
-use hyper::{body::Buf, Client as HTTPClient, Request};
-use serde::Deserialize;
-
-use crate::TriggerConfig;
-
-trait EventEmitter {
-	fn on(&self, event: &str, listener: Box<dyn Fn(&str)>);
-}
+use crate::{ArangoDBError, Error, Result};
 
 pub struct Trigger {
-	pub host: String,
-	pub database: Option<String>,
-	pub collections: Option<Vec<String>>,
-
-	// Properties
-	started: bool,
+	host: String,
+	database: String,
+	auth: Option<TriggerAuthentication>,
 }
 
-impl Default for Trigger {
-	fn default() -> Self {
+pub struct TriggerAuthentication {
+	user: String,
+	password: String,
+}
+
+impl TriggerAuthentication {
+	pub fn new(user: &str, password: &str) -> Self {
 		Self {
-			host: String::from("http://localhost:8529/"),
-			database: Some(String::from("_system")),
-			collections: Some(Vec::new()),
-			started: false,
+			user: user.to_string(),
+			password: password.to_string(),
 		}
 	}
 }
 
 impl Trigger {
-	pub fn new(host: &str, database: &str) -> Self {
-		Self {
+	pub async fn new(
+		host: &str,
+		database: &str,
+		auth: Option<TriggerAuthentication>,
+	) -> Result<Self> {
+		let trigger = Self {
 			host: host.to_string(),
-			database: Some(database.to_string()),
-			..Default::default()
-		}
+			database: database.to_string(),
+			auth,
+		};
+
+		trigger.init().await?;
+
+		Ok(trigger)
 	}
 
-	async fn start_logger_state(mut self) -> Result<(), ()> {
-		let logger_state_path = hyper::Uri::from_str(
-			format!(
-				"{}/_db${}/_api/replication/logger-state",
-				&self.host,
-				&self.database.as_ref().unwrap()
-			)
-			.as_str(),
-		);
+	fn get_uri(&self, endpoint: &str) -> Result<Uri> {
+		format!("{}/_db/{}{}", self.host, self.database, endpoint)
+			.parse()
+			.map_err(|e: hyper::http::uri::InvalidUri| e.into())
+	}
 
-		let logger_follow_path = hyper::Uri::from_str(
-			format!(
-				"{}/_db${}/_api/replication/logger-follow",
-				&self.host,
-				&self.database.as_ref().unwrap()
-			)
-			.as_str(),
-		);
+	fn get_authorization_value(&self, auth: &TriggerAuthentication) -> String {
+		format!(
+			"Basic {}",
+			base64::encode(format!("{}:{}", auth.user, auth.password))
+		)
+	}
 
-		let client = HTTPClient::new();
+	fn get_new_request(&self, uri: Uri) -> HttpRequestBuilder {
+		let mut req = Request::builder().uri(uri);
 
-		// let logger_request = client.get(logger_state_path.unwrap_or_default()).await?;
+		if let Some(auth) = &self.auth {
+			req = req.header(
+				hyper::header::AUTHORIZATION,
+				self.get_authorization_value(auth),
+			);
+		}
 
-		// let logger_response = hyper::body::aggregate(logger_request).await?;
+		req
+	}
 
-		// let res = serde_json::from_reader(logger_response.reader())?;
+	async fn init(&self) -> Result<()> {
+		let client = Client::new();
+
+		let logger_state_uri = self.get_uri("/_api/replication/logger-state")?;
+		let req = self
+			.get_new_request(logger_state_uri)
+			.body(Body::empty())
+			.map_err::<Error, _>(|e| e.into())?;
+
+		let response: Response<Body> = client
+			.request(req)
+			.await
+			.map_err::<Error, _>(|e| e.into())?;
+
+		match response.status() {
+			StatusCode::UNAUTHORIZED => Err(ArangoDBError::Unauthorized.into()),
+			_ => {
+				println!("{:?}", response);
+
+				Ok(())
+			}
+		}
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	#[tokio::test]
+	pub async fn it_inits() -> Result<()> {
+		let trigger = Trigger::new(
+			"http://localhost:8529/",
+			"_system",
+			Some(TriggerAuthentication::new("root", "root")),
+		)
+		.await?;
 
 		Ok(())
 	}
-
-	pub async fn start(mut self) {
-		self.started = true;
-		self.start_logger_state().await;
-	}
-
-	pub fn stop(mut self) {
-		self.started = false;
-	}
-
-	pub fn subscribe(&self, config: Vec<TriggerConfig>) {}
-
-	pub fn unsubscribe(&self, config: Vec<TriggerConfig>) {}
 }

@@ -1,5 +1,7 @@
-pub mod config;
-pub use config::TriggerConfig;
+extern crate base64;
 
+pub mod errors;
 pub mod trigger;
-pub use trigger::Trigger;
+
+pub use errors::*;
+pub use trigger::*;

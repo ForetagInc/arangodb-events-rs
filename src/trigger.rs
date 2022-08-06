@@ -82,11 +82,14 @@ impl Trigger {
 
 		match response.status() {
 			StatusCode::UNAUTHORIZED => Err(ArangoDBError::Unauthorized.into()),
-			_ => {
+			StatusCode::METHOD_NOT_ALLOWED => Err(ArangoDBError::MethodNotAllowed.into()),
+			StatusCode::INTERNAL_SERVER_ERROR => Err(ArangoDBError::ServerError.into()),
+			StatusCode::OK => {
 				println!("{:?}", response);
 
 				Ok(())
 			}
+			_ => unreachable!(),
 		}
 	}
 }

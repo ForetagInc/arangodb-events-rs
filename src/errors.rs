@@ -22,6 +22,8 @@ pub(super) enum Kind {
 #[derive(Debug)]
 pub(super) enum ArangoDBError {
 	Unauthorized,
+	MethodNotAllowed,
+	ServerError,
 }
 
 impl Error {
@@ -46,6 +48,10 @@ impl Error {
 			Kind::ArangoDB(ArangoDBError::Unauthorized) => {
 				"ArangoDB error: not authorized to execute this request"
 			}
+			Kind::ArangoDB(ArangoDBError::MethodNotAllowed) => {
+				"ArangoDB error: method not supported"
+			}
+			Kind::ArangoDB(ArangoDBError::ServerError) => "ArangoDB error: internal server error",
 		}
 	}
 }

@@ -24,20 +24,20 @@ impl TriggerAuthentication {
 }
 
 impl Trigger {
-	pub async fn new(
-		host: &str,
-		database: &str,
-		auth: Option<TriggerAuthentication>,
-	) -> Result<Self> {
-		let trigger = Self {
+	pub fn new(host: &str, database: &str) -> Self {
+		Self {
 			host: host.to_string(),
 			database: database.to_string(),
-			auth,
-		};
+			auth: None,
+		}
+	}
 
-		trigger.init().await?;
-
-		Ok(trigger)
+	pub fn new_auth(host: &str, database: &str, auth: TriggerAuthentication) -> Self {
+		Self {
+			host: host.to_string(),
+			database: database.to_string(),
+			auth: Some(auth),
+		}
 	}
 
 	fn get_uri(&self, endpoint: &str) -> Result<Uri> {
@@ -66,7 +66,7 @@ impl Trigger {
 		req
 	}
 
-	async fn init(&self) -> Result<()> {
+	pub async fn init(&self) -> Result<()> {
 		let client = Client::new();
 
 		let logger_state_uri = self.get_uri("/_api/replication/logger-state")?;
@@ -100,12 +100,13 @@ mod tests {
 
 	#[tokio::test]
 	pub async fn it_inits() -> Result<()> {
-		let trigger = Trigger::new(
+		let trigger = Trigger::new_auth(
 			"http://localhost:8529/",
 			"_system",
-			Some(TriggerAuthentication::new("root", "root")),
-		)
-		.await?;
+			TriggerAuthentication::new("root", "root"),
+		);
+
+		trigger.init().await?;
 
 		Ok(())
 	}

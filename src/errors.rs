@@ -59,14 +59,14 @@ impl Error {
 		&self.inner.kind
 	}
 
-	fn description(&self) -> &str {
+	fn description(&self) -> String {
 		match self.inner.kind {
-			Kind::Http => "HTTP client error",
+			Kind::Http => "HTTP client error".to_string(),
 			Kind::ArangoDB(ArangoDBError::HttpError(s)) => {
-				format!("ArangoDB HTTP API error: {}", s.as_str()).as_str()
+				format!("ArangoDB HTTP API error: {}", s.as_str())
 			}
-			Kind::Io(Io::Serialize) => "Error while serializing/deserializing data",
-			Kind::Io(Io::Other) => "I/O Error",
+			Kind::Io(Io::Serialize) => "Error while serializing/deserializing data".to_string(),
+			Kind::Io(Io::Other) => "I/O Error".to_string(),
 		}
 	}
 }
@@ -87,7 +87,7 @@ impl fmt::Display for Error {
 		if let Some(ref cause) = self.inner.cause {
 			write!(f, "{}: {}", self.description(), cause)
 		} else {
-			f.write_str(self.description())
+			f.write_str(self.description().as_str())
 		}
 	}
 }

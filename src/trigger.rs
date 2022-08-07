@@ -3,7 +3,7 @@ use hyper::{Body, Client, Request, Response, StatusCode, Uri};
 
 use crate::api::{LogType, LoggerStateData};
 use crate::deserialize::Deserializer;
-use crate::{utils, ArangoDBError, Error, Io, Kind, MapCrateError, Result};
+use crate::{utils, Error, Io, Kind, MapCrateError, Result};
 
 const LAST_LOG_HEADER: &str = "X-Arango-Replication-Lastincluded";
 

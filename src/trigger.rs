@@ -1,7 +1,7 @@
 use hyper::http::request::Builder as HttpRequestBuilder;
 use hyper::{Body, Client, Request, Response, StatusCode, Uri};
 
-use crate::api::LoggerStateData;
+use crate::api::{LogType, LoggerStateData};
 use crate::deserialize::Deserializer;
 use crate::{utils, ArangoDBError, Error, Io, Kind, MapCrateError, Result};
 
@@ -174,7 +174,18 @@ impl Trigger {
 			.parse()
 			.map_crate_err()?;
 
-		println!("{}", log_type);
+		match log_type.try_into() {
+			Ok(LogType::StartTransaction) => {
+				println!("Start transaction")
+			}
+			Ok(LogType::InsertOrReplaceDocument) => {
+				println!("Insert or replace")
+			}
+			Ok(LogType::CommitTransaction) => {
+				println!("Commit transaction")
+			}
+			_ => {}
+		}
 
 		Ok(())
 	}

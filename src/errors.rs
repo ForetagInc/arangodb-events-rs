@@ -1,6 +1,8 @@
 use std::fmt;
 
-pub type Result<T> = std::result::Result<T, Error>;
+pub(crate) type StdResult<T, E> = std::result::Result<T, E>;
+
+pub type Result<T> = StdResult<T, Error>;
 
 type Cause = Box<dyn std::error::Error>;
 
@@ -37,7 +39,7 @@ pub trait MapCrateError<T, E: Into<Error>> {
 	fn map_crate_err(self) -> Result<T>;
 }
 
-impl<T, E: Into<Error>> MapCrateError<T, E> for std::result::Result<T, E> {
+impl<T, E: Into<Error>> MapCrateError<T, E> for StdResult<T, E> {
 	fn map_crate_err(self) -> Result<T> {
 		self.map_err::<Error, _>(|e| e.into())
 	}

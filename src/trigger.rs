@@ -11,6 +11,7 @@ pub struct Trigger {
 	host: String,
 	database: String,
 	auth: Option<TriggerAuthentication>,
+	last_log_tick: String
 }
 
 pub struct TriggerAuthentication {
@@ -33,6 +34,7 @@ impl Trigger {
 			host: host.to_string(),
 			database: database.to_string(),
 			auth: None,
+			last_log_tick: "0".to_string()
 		}
 	}
 
@@ -41,6 +43,7 @@ impl Trigger {
 			host: host.to_string(),
 			database: database.to_string(),
 			auth: Some(auth),
+			last_log_tick: "0".to_string()
 		}
 	}
 
@@ -70,7 +73,7 @@ impl Trigger {
 		req
 	}
 
-	pub async fn init(&self) -> Result<()> {
+	pub async fn init(&mut self) -> Result<()> {
 		let client = Client::new();
 
 		let logger_state_uri = self.get_uri("/_api/replication/logger-state")?;
@@ -90,8 +93,7 @@ impl Trigger {
 				let data: LoggerStateData =
 					serde_json::from_slice(bytes.as_ref()).map_crate_err()?;
 
-				self.process_log_tick(data.state.last_log_tick.as_str())
-					.await?;
+				self.last_log_tick = data.state.last_log_tick;
 
 				Ok(())
 			}
@@ -99,12 +101,13 @@ impl Trigger {
 		}
 	}
 
-	#[async_recursion::async_recursion]
-	async fn process_log_tick(&self, tick: &str) -> Result<()> {
+	pub async fn listen(&mut self) -> Result<()> {
+		let curent_tick = self.last_log_tick.clone();
+
 		let client = Client::new();
 
 		let logger_state_uri =
-			self.get_uri(format!("/_api/replication/logger-follow?from={}", tick).as_str())?;
+			self.get_uri(format!("/_api/replication/logger-follow?from={}", curent_tick.as_str()).as_str())?;
 
 		let req = self
 			.get_new_request(logger_state_uri)
@@ -117,21 +120,23 @@ impl Trigger {
 			let value = v.to_str().map_crate_err()?;
 
 			if value == "0" {
-				tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+				tokio::time::sleep(std::time::Duration::from_millis(2000)).await;
 
-				tick.to_string()
+				curent_tick.as_str()
 			} else {
-				value.to_string()
+				value
 			}
 		} else {
-			tick.to_string()
+			curent_tick.as_str()
 		};
 
+		self.last_log_tick = next_log_tick.to_string();
+
 		// If there's no change on tick value, call again process_log_tick
-		if next_log_tick != tick {
+		if !next_log_tick.eq(&curent_tick) {
 			let mut deserializer = Deserializer::new(response.into_body());
 
-			println!("----------{}----------------", tick);
+			println!("----------{}----------------", curent_tick);
 
 			while let Some(line) = deserializer.read_line().await? {
 				print!("{}", line)
@@ -140,7 +145,7 @@ impl Trigger {
 			println!("---------------------------------")
 		}
 
-		self.process_log_tick(next_log_tick.as_str()).await
+		Ok(())
 	}
 }
 
@@ -150,7 +155,7 @@ mod tests {
 
 	#[tokio::test]
 	pub async fn it_inits() -> Result<()> {
-		let trigger = Trigger::new_auth(
+		let mut trigger = Trigger::new_auth(
 			"http://localhost:8529/",
 			"_system",
 			TriggerAuthentication::new("root", "root"),

@@ -33,6 +33,8 @@ pub(super) enum ArangoDBError {
 	Unauthorized,
 	MethodNotAllowed,
 	ServerError,
+	BadRequest,
+	NotImplemented
 }
 
 pub trait MapCrateError<T, E: Into<Error>> {
@@ -71,6 +73,8 @@ impl Error {
 				"ArangoDB error: method not supported"
 			}
 			Kind::ArangoDB(ArangoDBError::ServerError) => "ArangoDB error: internal server error",
+			Kind::ArangoDB(ArangoDBError::BadRequest) => "ArangoDB error: bad request",
+			Kind::ArangoDB(ArangoDBError::NotImplemented) => "ArangoDB error: not implemented",
 			Kind::Io(Io::Serialize) => "Error while serializing/deserializing data",
 			Kind::Io(Io::Other) => "I/O Error",
 		}
@@ -107,44 +111,33 @@ impl std::error::Error for Error {
 	}
 }
 
+macro_rules! err_from {
+	($err:path, $new:expr) => {
+		impl From<$err> for Error {
+			fn from(_: $err) -> Self {
+				Error::new($new)
+			}
+		}
+	};
+	(+ $err:path, $new:expr) => {
+		impl From<$err> for Error {
+			fn from(e: $err) -> Self {
+				Error::new($new).with(e)
+			}
+		}
+	}
+}
+
 impl From<ArangoDBError> for Error {
 	fn from(e: ArangoDBError) -> Self {
 		Error::new(Kind::ArangoDB(e))
 	}
 }
 
-impl From<hyper::http::uri::InvalidUri> for Error {
-	fn from(e: hyper::http::uri::InvalidUri) -> Self {
-		Error::new(Kind::Http).with(e)
-	}
-}
-
-impl From<hyper::http::Error> for Error {
-	fn from(e: hyper::http::Error) -> Self {
-		Error::new(Kind::Http).with(e)
-	}
-}
-
-impl From<hyper::Error> for Error {
-	fn from(e: hyper::Error) -> Self {
-		Error::new(Kind::Http).with(e)
-	}
-}
-
-impl From<std::io::Error> for Error {
-	fn from(e: std::io::Error) -> Self {
-		Error::new(Kind::Io(Io::Other)).with(e)
-	}
-}
-
-impl From<serde_json::Error> for Error {
-	fn from(e: serde_json::Error) -> Self {
-		Error::new(Kind::Io(Io::Serialize)).with(e)
-	}
-}
-
-impl From<hyper::header::ToStrError> for Error {
-	fn from(e: hyper::header::ToStrError) -> Self {
-		Error::new(Kind::Io(Io::Serialize)).with(e)
-	}
-}
+err_from!(+ hyper::http::uri::InvalidUri, Kind::Http);
+err_from!(+ hyper::http::Error, Kind::Http);
+err_from!(+ hyper::Error, Kind::Http);
+err_from!(+ std::io::Error, Kind::Io(Io::Other));
+err_from!(+ serde_json::Error, Kind::Io(Io::Serialize));
+err_from!(+ hyper::header::ToStrError, Kind::Io(Io::Serialize));
+err_from!(+ std::num::ParseIntError, Kind::Io(Io::Serialize));

@@ -1,5 +1,7 @@
 extern crate base64;
 
+pub(crate) mod utils;
+
 pub mod api;
 pub mod deserialize;
 pub mod errors;

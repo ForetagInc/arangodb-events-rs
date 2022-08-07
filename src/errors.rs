@@ -30,11 +30,7 @@ pub(super) enum Io {
 
 #[derive(Debug)]
 pub(super) enum ArangoDBError {
-	Unauthorized,
-	MethodNotAllowed,
-	ServerError,
-	BadRequest,
-	NotImplemented
+	HttpError(hyper::StatusCode),
 }
 
 pub trait MapCrateError<T, E: Into<Error>> {
@@ -66,15 +62,9 @@ impl Error {
 	fn description(&self) -> &str {
 		match self.inner.kind {
 			Kind::Http => "HTTP client error",
-			Kind::ArangoDB(ArangoDBError::Unauthorized) => {
-				"ArangoDB error: not authorized to execute this request"
+			Kind::ArangoDB(ArangoDBError::HttpError(s)) => {
+				format!("ArangoDB HTTP API error: {}", s.as_str()).as_str()
 			}
-			Kind::ArangoDB(ArangoDBError::MethodNotAllowed) => {
-				"ArangoDB error: method not supported"
-			}
-			Kind::ArangoDB(ArangoDBError::ServerError) => "ArangoDB error: internal server error",
-			Kind::ArangoDB(ArangoDBError::BadRequest) => "ArangoDB error: bad request",
-			Kind::ArangoDB(ArangoDBError::NotImplemented) => "ArangoDB error: not implemented",
 			Kind::Io(Io::Serialize) => "Error while serializing/deserializing data",
 			Kind::Io(Io::Other) => "I/O Error",
 		}
@@ -111,6 +101,12 @@ impl std::error::Error for Error {
 	}
 }
 
+impl From<hyper::StatusCode> for Error {
+	fn from(s: hyper::StatusCode) -> Self {
+		Error::new(Kind::ArangoDB(ArangoDBError::HttpError(s)))
+	}
+}
+
 macro_rules! err_from {
 	($err:path, $new:expr) => {
 		impl From<$err> for Error {
@@ -125,13 +121,7 @@ macro_rules! err_from {
 				Error::new($new).with(e)
 			}
 		}
-	}
-}
-
-impl From<ArangoDBError> for Error {
-	fn from(e: ArangoDBError) -> Self {
-		Error::new(Kind::ArangoDB(e))
-	}
+	};
 }
 
 err_from!(+ hyper::http::uri::InvalidUri, Kind::Http);

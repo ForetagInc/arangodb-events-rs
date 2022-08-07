@@ -85,9 +85,6 @@ impl Trigger {
 		let response: Response<Body> = client.request(req).await.map_crate_err()?;
 
 		match response.status() {
-			StatusCode::UNAUTHORIZED => Err(ArangoDBError::Unauthorized.into()),
-			StatusCode::METHOD_NOT_ALLOWED => Err(ArangoDBError::MethodNotAllowed.into()),
-			StatusCode::INTERNAL_SERVER_ERROR => Err(ArangoDBError::ServerError.into()),
 			StatusCode::OK => {
 				let bytes = hyper::body::to_bytes(response.into_body()).await?;
 				let data: LoggerStateData =
@@ -97,7 +94,7 @@ impl Trigger {
 
 				Ok(())
 			}
-			_ => unreachable!("Unexpected {} status code", response.status()),
+			s => Err(s.into()),
 		}
 	}
 
@@ -122,11 +119,6 @@ impl Trigger {
 		let response: Response<Body> = client.request(req).await.map_crate_err()?;
 
 		match response.status() {
-			StatusCode::UNAUTHORIZED => Err(ArangoDBError::Unauthorized.into()),
-			StatusCode::METHOD_NOT_ALLOWED => Err(ArangoDBError::MethodNotAllowed.into()),
-			StatusCode::INTERNAL_SERVER_ERROR => Err(ArangoDBError::ServerError.into()),
-			StatusCode::BAD_REQUEST => Err(ArangoDBError::BadRequest.into()),
-			StatusCode::NOT_IMPLEMENTED => Err(ArangoDBError::NotImplemented.into()),
 			StatusCode::OK | StatusCode::NO_CONTENT => {
 				let next_log_tick = if let Some(v) = response.headers().get(LAST_LOG_HEADER) {
 					let value = v.to_str().map_crate_err()?;
@@ -151,7 +143,7 @@ impl Trigger {
 					println!("----------{}----------------", current_tick);
 
 					while let Some(line) = deserializer.read_line().await? {
-						self.process_line(line);
+						self.process_line(line)?;
 					}
 
 					println!("---------------------------------")
@@ -159,7 +151,7 @@ impl Trigger {
 
 				Ok(())
 			}
-			_ => unreachable!("Unexpected {} status code", response.status()),
+			s => Err(s.into()),
 		}
 	}
 

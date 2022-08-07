@@ -1,6 +1,7 @@
 use hyper::http::request::Builder as HttpRequestBuilder;
 use hyper::{Body, Client, Request, Response, StatusCode, Uri};
 
+use crate::deserialize::Deserializer;
 use crate::{ArangoDBError, Error, Result};
 
 pub struct Trigger {
@@ -69,7 +70,7 @@ impl Trigger {
 	pub async fn init(&self) -> Result<()> {
 		let client = Client::new();
 
-		let logger_state_uri = self.get_uri("/_api/replication/logger-state")?;
+		let logger_state_uri = self.get_uri("/_api/replication/logger-follow")?;
 		let req = self
 			.get_new_request(logger_state_uri)
 			.body(Body::empty())
@@ -87,9 +88,13 @@ impl Trigger {
 			StatusCode::OK => {
 				println!("{:?}", response);
 
+				let mut deserializer = Deserializer::new(response.into_body());
+
+				println!("{:?}", deserializer.read_line().await);
+
 				Ok(())
 			}
-			_ => unreachable!(),
+			_ => unreachable!("Unexpected {} status code", response.status()),
 		}
 	}
 }

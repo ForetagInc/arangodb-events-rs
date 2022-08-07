@@ -17,6 +17,7 @@ struct ErrorImpl {
 pub(super) enum Kind {
 	Http,
 	ArangoDB(ArangoDBError),
+	Io,
 }
 
 #[derive(Debug)]
@@ -52,6 +53,7 @@ impl Error {
 				"ArangoDB error: method not supported"
 			}
 			Kind::ArangoDB(ArangoDBError::ServerError) => "ArangoDB error: internal server error",
+			Kind::Io => "IO Error",
 		}
 	}
 }
@@ -107,5 +109,11 @@ impl From<hyper::http::Error> for Error {
 impl From<hyper::Error> for Error {
 	fn from(e: hyper::Error) -> Self {
 		Error::new(Kind::Http).with(e)
+	}
+}
+
+impl From<std::io::Error> for Error {
+	fn from(e: std::io::Error) -> Self {
+		Error::new(Kind::Io).with(e)
 	}
 }

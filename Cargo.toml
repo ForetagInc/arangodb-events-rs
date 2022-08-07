@@ -14,8 +14,10 @@ exclude = ['.gitignore', '.github']
 bench = true
 
 [dependencies]
-hyper = { version = '0.14', features = ['client', 'tcp', 'http2'] }
+hyper = { version = '0.14', features = ['client', 'tcp', 'http2', 'stream'] }
 serde = '1'
 serde_json = '1'
 tokio = { version = '1', features = ['rt', 'macros'] }
+tokio-util = { version = '0.7.3', features = ['io'] }
 base64 = '0.13.0'
+futures-util = { version = '0.3.21', features = ['io'] }

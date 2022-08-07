@@ -167,7 +167,7 @@ impl Trigger {
 	fn process_line(&self, line: String) -> Result<()> {
 		let type_idx = line
 			.find("\"type\":")
-			.ok_or::<Error>(Error::new(Kind::Io(Io::Serialize)))?
+			.ok_or(Error::new(Kind::Io(Io::Serialize)))?
 			+ 7; // 7 = "type": length
 
 		let log_type: u16 = utils::get_string_between(line.as_str(), type_idx, 4)

@@ -17,7 +17,13 @@ struct ErrorImpl {
 pub(super) enum Kind {
 	Http,
 	ArangoDB(ArangoDBError),
-	Io,
+	Io(Io),
+}
+
+#[derive(Debug)]
+pub(super) enum Io {
+	Serialize,
+	Other,
 }
 
 #[derive(Debug)]
@@ -53,7 +59,8 @@ impl Error {
 				"ArangoDB error: method not supported"
 			}
 			Kind::ArangoDB(ArangoDBError::ServerError) => "ArangoDB error: internal server error",
-			Kind::Io => "IO Error",
+			Kind::Io(Io::Serialize) => "Error while serializing/deserializing data",
+			Kind::Io(Io::Other) => "I/O Error",
 		}
 	}
 }
@@ -114,6 +121,12 @@ impl From<hyper::Error> for Error {
 
 impl From<std::io::Error> for Error {
 	fn from(e: std::io::Error) -> Self {
-		Error::new(Kind::Io).with(e)
+		Error::new(Kind::Io(Io::Other)).with(e)
+	}
+}
+
+impl From<serde_json::Error> for Error {
+	fn from(e: serde_json::Error) -> Self {
+		Error::new(Kind::Io(Io::Serialize)).with(e)
 	}
 }

@@ -2,7 +2,7 @@ use hyper::http::request::Builder as HttpRequestBuilder;
 use hyper::{Body, Client, Request, Response, StatusCode, Uri};
 
 use crate::api::LoggerStateData;
-use crate::{ArangoDBError, Error, Result};
+use crate::{ArangoDBError, Error, MapCrateError, Result};
 
 pub struct Trigger {
 	host: String,
@@ -74,12 +74,9 @@ impl Trigger {
 		let req = self
 			.get_new_request(logger_state_uri)
 			.body(Body::empty())
-			.map_err::<Error, _>(|e| e.into())?;
+			.map_crate_err()?;
 
-		let response: Response<Body> = client
-			.request(req)
-			.await
-			.map_err::<Error, _>(|e| e.into())?;
+		let response: Response<Body> = client.request(req).await.map_crate_err()?;
 
 		match response.status() {
 			StatusCode::UNAUTHORIZED => Err(ArangoDBError::Unauthorized.into()),
@@ -90,7 +87,7 @@ impl Trigger {
 
 				let bytes = hyper::body::to_bytes(response.into_body()).await?;
 				let data: LoggerStateData =
-					serde_json::from_slice(bytes.as_ref()).map_err::<Error, _>(|e| e.into())?;
+					serde_json::from_slice(bytes.as_ref()).map_crate_err()?;
 
 				println!("{:?}", data.state.last_log_tick);
 

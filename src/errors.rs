@@ -33,6 +33,16 @@ pub(super) enum ArangoDBError {
 	ServerError,
 }
 
+pub trait MapCrateError<T, E: Into<Error>> {
+	fn map_crate_err(self) -> Result<T>;
+}
+
+impl<T, E: Into<Error>> MapCrateError<T, E> for std::result::Result<T, E> {
+	fn map_crate_err(self) -> Result<T> {
+		self.map_err::<Error, _>(|e| e.into())
+	}
+}
+
 impl Error {
 	pub(super) fn new(kind: Kind) -> Error {
 		Error {

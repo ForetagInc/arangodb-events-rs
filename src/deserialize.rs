@@ -6,7 +6,7 @@ use hyper::Body;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
-use crate::Result as OurResult;
+use crate::{MapCrateError, Result as OurResult};
 
 pub(crate) struct Deserializer<R: AsyncRead> {
 	inner: R,
@@ -42,11 +42,7 @@ impl Deserializer<IntoAsyncRead<BodyStream>> {
 	pub(crate) async fn read_line(&mut self) -> OurResult<Option<String>> {
 		let mut str = String::new();
 
-		let b = self
-			.inner
-			.read_line(&mut str)
-			.await
-			.map_err::<crate::Error, _>(|e| e.into())?;
+		let b = self.inner.read_line(&mut str).await.map_crate_err()?;
 
 		if b == 0 {
 			return Ok(None);

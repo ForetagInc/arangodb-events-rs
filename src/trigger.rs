@@ -2,7 +2,10 @@ use hyper::http::request::Builder as HttpRequestBuilder;
 use hyper::{Body, Client, Request, Response, StatusCode, Uri};
 
 use crate::api::LoggerStateData;
-use crate::{ArangoDBError, Error, MapCrateError, Result};
+use crate::deserialize::Deserializer;
+use crate::{ArangoDBError, MapCrateError, Result};
+
+const LAST_LOG_HEADER: &str = "X-Arango-Replication-Lastincluded";
 
 pub struct Trigger {
 	host: String,
@@ -83,18 +86,61 @@ impl Trigger {
 			StatusCode::METHOD_NOT_ALLOWED => Err(ArangoDBError::MethodNotAllowed.into()),
 			StatusCode::INTERNAL_SERVER_ERROR => Err(ArangoDBError::ServerError.into()),
 			StatusCode::OK => {
-				println!("{:?}", response);
-
 				let bytes = hyper::body::to_bytes(response.into_body()).await?;
 				let data: LoggerStateData =
 					serde_json::from_slice(bytes.as_ref()).map_crate_err()?;
 
-				println!("{:?}", data.state.last_log_tick);
+				self.process_log_tick(data.state.last_log_tick.as_str())
+					.await?;
 
 				Ok(())
 			}
 			_ => unreachable!("Unexpected {} status code", response.status()),
 		}
+	}
+
+	#[async_recursion::async_recursion]
+	async fn process_log_tick(&self, tick: &str) -> Result<()> {
+		let client = Client::new();
+
+		let logger_state_uri =
+			self.get_uri(format!("/_api/replication/logger-follow?from={}", tick).as_str())?;
+
+		let req = self
+			.get_new_request(logger_state_uri)
+			.body(Body::empty())
+			.map_crate_err()?;
+
+		let response: Response<Body> = client.request(req).await.map_crate_err()?;
+
+		let next_log_tick = if let Some(v) = response.headers().get(LAST_LOG_HEADER) {
+			let value = v.to_str().map_crate_err()?;
+
+			if value == "0" {
+				tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+
+				tick.to_string()
+			} else {
+				value.to_string()
+			}
+		} else {
+			tick.to_string()
+		};
+
+		// If there's no change on tick value, call again process_log_tick
+		if next_log_tick != tick {
+			let mut deserializer = Deserializer::new(response.into_body());
+
+			println!("----------{}----------------", tick);
+
+			while let Some(line) = deserializer.read_line().await? {
+				print!("{}", line)
+			}
+
+			println!("---------------------------------")
+		}
+
+		self.process_log_tick(next_log_tick.as_str()).await
 	}
 }
 

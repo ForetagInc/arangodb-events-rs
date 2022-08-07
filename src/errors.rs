@@ -142,3 +142,9 @@ impl From<serde_json::Error> for Error {
 		Error::new(Kind::Io(Io::Serialize)).with(e)
 	}
 }
+
+impl From<hyper::header::ToStrError> for Error {
+	fn from(e: hyper::header::ToStrError) -> Self {
+		Error::new(Kind::Io(Io::Serialize)).with(e)
+	}
+}

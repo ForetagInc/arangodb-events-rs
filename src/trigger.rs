@@ -1,7 +1,8 @@
 use hyper::http::request::Builder as HttpRequestBuilder;
 use hyper::{Body, Client, Request, Response, StatusCode, Uri};
+use std::collections::HashMap;
 
-use crate::api::{LogType, LoggerStateData};
+use crate::api::{DocumentOperation, LogType, LoggerStateData, RemoveDocumentData};
 use crate::deserialize::Deserializer;
 use crate::{utils, Error, Io, Kind, MapCrateError, Result};
 
@@ -12,6 +13,7 @@ pub struct Trigger {
 	database: String,
 	auth: Option<TriggerAuthentication>,
 	last_log_tick: String,
+	transactions: HashMap<String, Transaction>,
 }
 
 pub struct TriggerAuthentication {
@@ -35,6 +37,7 @@ impl Trigger {
 			database: database.to_string(),
 			auth: None,
 			last_log_tick: "0".to_string(),
+			transactions: HashMap::new(),
 		}
 	}
 
@@ -44,6 +47,7 @@ impl Trigger {
 			database: database.to_string(),
 			auth: Some(auth),
 			last_log_tick: "0".to_string(),
+			transactions: HashMap::new(),
 		}
 	}
 
@@ -126,7 +130,7 @@ impl Trigger {
 					if value == "0" {
 						tokio::time::sleep(std::time::Duration::from_millis(500)).await;
 
-						current_tick.as_str()
+						return Ok(());
 					} else {
 						value
 					}
@@ -156,31 +160,76 @@ impl Trigger {
 	}
 
 	// {"tick":"6181901","type":2300,"database":"664279","tid":"1368501","cid":"664397","cname":"accounts","data":{"_key":"664537","_id":"accounts/664537","_rev":"_eljTnkS--A","firstName":"Chirus","age":20}}
-	fn process_line(&self, line: String) -> Result<()> {
-		let type_idx = line
-			.find("\"type\":")
-			.ok_or(Error::new(Kind::Io(Io::Serialize)))?
-			+ 7; // 7 = "type": length
+	fn process_line(&mut self, line: String) -> Result<()> {
+		// We do this kind of parsing with indexes and characters instead of serializing or
+		// deserializing JSON directly using `serde_json` because it'd consume a lot of resources
+		// for some operations that may not be needed to be parsed.
+
+		// Get index after search on line
+		fn find_idx(line: &str, search: &str) -> Result<usize> {
+			Ok(line
+				.find(search)
+				.ok_or(Error::new(Kind::Io(Io::Serialize)))?
+				+ search.len())
+		}
+
+		let type_idx = find_idx(line.as_str(), "\"type\":")?;
 
 		let log_type: u16 = utils::get_string_between(line.as_str(), type_idx, 4)
 			.parse()
 			.map_crate_err()?;
 
+		// Get transaction id
+		fn get_tid(line: &str) -> Result<String> {
+			let tid_idx = find_idx(line, "\"tid\":\"")?;
+
+			Ok(utils::get_string_until(line, tid_idx, '"'))
+		}
+
 		match log_type.try_into() {
 			Ok(LogType::StartTransaction) => {
-				println!("Start transaction")
+				let tid = get_tid(line.as_str())?;
+
+				self.transactions.insert(tid.clone(), Transaction::new(tid));
 			}
 			Ok(LogType::InsertOrReplaceDocument) => {
 				println!("Insert or replace")
 			}
+			Ok(LogType::RemoveDocument) => {
+				println!("Remove")
+			}
 			Ok(LogType::CommitTransaction) => {
 				println!("Commit transaction")
+			}
+			Ok(LogType::AbortTransaction) => {
+				let tid = get_tid(line.as_str())?;
+
+				self.transactions.remove(tid.as_str());
 			}
 			_ => {}
 		}
 
 		Ok(())
 	}
+}
+
+pub(crate) struct Transaction {
+	id: String,
+	operations: Vec<TransactionOperation>,
+}
+
+impl Transaction {
+	pub(crate) fn new(id: String) -> Self {
+		Self {
+			id,
+			operations: Vec::new(),
+		}
+	}
+}
+
+pub(crate) enum TransactionOperation {
+	InsertOrReplaceDocument(DocumentOperation),
+	RemoveDocument(DocumentOperation<RemoveDocumentData>),
 }
 
 #[cfg(test)]

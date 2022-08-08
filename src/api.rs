@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use serde_json::Value as JsonValue;
 
 #[derive(Serialize, Deserialize)]
 pub(crate) struct LoggerStateData {
@@ -63,4 +64,17 @@ impl TryFrom<u16> for LogType {
 			_ => Err(()),
 		}
 	}
+}
+
+#[derive(Serialize, Deserialize)]
+pub(crate) struct DocumentOperation<D = JsonValue> {
+	#[serde(rename = "cname")]
+	collection: String,
+	data: D,
+}
+
+#[derive(Serialize, Deserialize)]
+pub(crate) struct RemoveDocumentData {
+	_key: String,
+	_rev: String,
 }

@@ -159,7 +159,6 @@ impl Trigger {
 		}
 	}
 
-	// {"tick":"6181901","type":2300,"database":"664279","tid":"1368501","cid":"664397","cname":"accounts","data":{"_key":"664537","_id":"accounts/664537","_rev":"_eljTnkS--A","firstName":"Chirus","age":20}}
 	fn process_line(&mut self, line: String) -> Result<()> {
 		// We do this kind of parsing with indexes and characters instead of serializing or
 		// deserializing JSON directly using `serde_json` because it'd consume a lot of resources

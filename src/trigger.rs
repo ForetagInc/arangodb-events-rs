@@ -175,7 +175,7 @@ impl Trigger {
 
 		let type_idx = find_idx(line.as_str(), "\"type\":")?;
 
-		let log_type: u16 = utils::get_string_between(line.as_str(), type_idx, 4)
+		let log_type_str: u16 = utils::get_string_between(line.as_str(), type_idx, 4)
 			.parse()
 			.map_crate_err()?;
 
@@ -186,27 +186,44 @@ impl Trigger {
 			Ok(utils::get_string_until(line, tid_idx, '"'))
 		}
 
-		match log_type.try_into() {
-			Ok(LogType::StartTransaction) => {
-				let tid = get_tid(line.as_str())?;
+		match log_type_str.try_into() {
+			Ok(log_type) => match log_type {
+				LogType::StartTransaction => {
+					let tid = get_tid(line.as_str())?;
 
-				self.transactions.insert(tid.clone(), Transaction::new(tid));
-			}
-			Ok(LogType::InsertOrReplaceDocument) => {
-				println!("Insert or replace")
-			}
-			Ok(LogType::RemoveDocument) => {
-				println!("Remove")
-			}
-			Ok(LogType::CommitTransaction) => {
-				println!("Commit transaction")
-			}
-			Ok(LogType::AbortTransaction) => {
-				let tid = get_tid(line.as_str())?;
+					self.transactions.insert(tid.clone(), Transaction::new(tid));
+				}
+				LogType::RemoveDocument | LogType::InsertOrReplaceDocument => {
+					let tid = get_tid(line.as_str())?;
 
-				self.transactions.remove(tid.as_str());
-			}
-			_ => {}
+					// TODO: Process unique operations with transaction id = 0
+
+					// If the transaction's id is not 0 and it's not on already started transactions
+					// we just ignore the operation as it shouldn't get parsed
+					if let Some(t) = self.transactions.get_mut(tid.as_str()) {
+						t.operations
+							.push(if matches!(log_type, LogType::RemoveDocument) {
+								TransactionOperation::RemoveDocument(
+									serde_json::from_str(line.as_str()).map_crate_err()?,
+								)
+							} else {
+								TransactionOperation::InsertOrReplaceDocument(
+									serde_json::from_str(line.as_str()).map_crate_err()?,
+								)
+							})
+					}
+				}
+				LogType::CommitTransaction => {
+					println!("Commit transaction")
+				}
+				LogType::AbortTransaction => {
+					let tid = get_tid(line.as_str())?;
+
+					self.transactions.remove(tid.as_str());
+				}
+				_ => {}
+			},
+			Err(_) => {}
 		}
 
 		Ok(())

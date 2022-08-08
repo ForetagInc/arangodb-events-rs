@@ -186,8 +186,8 @@ impl Trigger {
 			Ok(utils::get_string_until(line, tid_idx, '"'))
 		}
 
-		match log_type_str.try_into() {
-			Ok(log_type) => match log_type {
+		if let Ok(log_type) = log_type_str.try_into() {
+			match log_type {
 				LogType::StartTransaction => {
 					let tid = get_tid(line.as_str())?;
 
@@ -222,8 +222,7 @@ impl Trigger {
 					self.transactions.remove(tid.as_str());
 				}
 				_ => {}
-			},
-			Err(_) => {}
+			}
 		}
 
 		Ok(())

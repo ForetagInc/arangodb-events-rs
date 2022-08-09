@@ -1,5 +1,6 @@
 use std::any::Any;
 use std::collections::HashMap;
+use std::ops::Deref;
 use std::sync::Arc;
 
 use crate::Result;
@@ -18,6 +19,24 @@ impl<T> HandlerContext<T> {
 	}
 }
 
+impl<T: ?Sized> HandlerContext<T> {
+	pub fn get_ref(&self) -> &T {
+		self.0.as_ref()
+	}
+
+	pub fn into_inner(self) -> Arc<T> {
+		self.0
+	}
+}
+
+impl<T: ?Sized> Deref for HandlerContext<T> {
+	type Target = Arc<T>;
+
+	fn deref(&self) -> &Arc<T> {
+		&self.0
+	}
+}
+
 impl<T: ?Sized> Clone for HandlerContext<T> {
 	fn clone(&self) -> HandlerContext<T> {
 		HandlerContext(Arc::clone(&self.0))
@@ -25,11 +44,11 @@ impl<T: ?Sized> Clone for HandlerContext<T> {
 }
 
 pub trait Handler<T: ?Sized> {
-	fn call(ctx: &HandlerContext<T>) -> Result<()>;
+	fn call(ctx: HandlerContext<T>) -> Result<()>;
 }
 
 pub(crate) struct Subscription<T: ?Sized> {
-	callback: fn(&HandlerContext<T>) -> Result<()>,
+	callback: fn(HandlerContext<T>) -> Result<()>,
 	context: HandlerContext<T>,
 }
 

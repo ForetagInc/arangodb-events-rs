@@ -1,4 +1,4 @@
-# (Rust) Arango Triggers
+# Arango Events
 
 A library to add triggers to your ArangoDB database, when events occur (insert, update, delete etc.) on your
 collections.

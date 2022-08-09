@@ -4,7 +4,10 @@ use std::collections::HashMap;
 
 use crate::api::{DocumentOperation, LogType, LoggerStateData, RemoveDocumentData};
 use crate::deserialize::Deserializer;
-use crate::{utils, Error, Io, Kind, MapCrateError, Result};
+use crate::{
+	utils, Error, Handler, HandlerContext, HandlerEvent, Io, Kind, MapCrateError, Result,
+	SubscriptionManager,
+};
 
 const LAST_LOG_HEADER: &str = "X-Arango-Replication-Lastincluded";
 
@@ -14,6 +17,7 @@ pub struct Trigger {
 	auth: Option<TriggerAuthentication>,
 	last_log_tick: String,
 	transactions: HashMap<String, Transaction>,
+	subscriptions: SubscriptionManager,
 }
 
 pub struct TriggerAuthentication {
@@ -38,17 +42,14 @@ impl Trigger {
 			auth: None,
 			last_log_tick: "0".to_string(),
 			transactions: HashMap::new(),
+			subscriptions: SubscriptionManager::new(),
 		}
 	}
 
 	pub fn new_auth(host: &str, database: &str, auth: TriggerAuthentication) -> Self {
-		Self {
-			host: host.to_string(),
-			database: database.to_string(),
-			auth: Some(auth),
-			last_log_tick: "0".to_string(),
-			transactions: HashMap::new(),
-		}
+		let mut instance = Self::new(host, database);
+		instance.auth = Some(auth);
+		instance
 	}
 
 	fn get_uri(&self, endpoint: &str) -> Result<Uri> {
@@ -225,6 +226,21 @@ impl Trigger {
 		}
 
 		Ok(())
+	}
+
+	pub fn subscribe<T: 'static, H: Handler<T>>(&mut self, event: HandlerEvent, ctx: T) {
+		self.subscriptions
+			.insert::<T, H>(event, HandlerContext::new(ctx))
+	}
+
+	pub fn subscribe_to<T: 'static, H: Handler<T>>(
+		&mut self,
+		event: HandlerEvent,
+		collection: String,
+		ctx: T,
+	) {
+		self.subscriptions
+			.insert_to::<T, H>(event, collection, HandlerContext::new(ctx))
 	}
 }
 

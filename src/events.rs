@@ -43,8 +43,16 @@ impl<T: ?Sized> Clone for HandlerContext<T> {
 	}
 }
 
-pub trait Handler {
-	fn call(ctx: HandlerContext<dyn Any>, doc: &DocumentOperation);
+pub trait Handler: 'static {
+	type Context;
+
+	fn call(ctx: &Self::Context, doc: &DocumentOperation);
+
+	fn dispatch(ctx: HandlerContext<dyn Any>, doc: &DocumentOperation) {
+		if let Some(data) = ctx.downcast_ref::<Self::Context>() {
+			Self::call(&data, doc);
+		}
+	}
 }
 
 pub(crate) struct Subscription {
@@ -65,7 +73,7 @@ impl SubscriptionMap {
 
 	pub(crate) fn insert<H: Handler>(&mut self, ev: HandlerEvent, ctx: HandlerContext<dyn Any>) {
 		let subscription = Subscription {
-			callback: H::call,
+			callback: H::dispatch,
 			context: ctx,
 		};
 

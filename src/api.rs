@@ -66,15 +66,9 @@ impl TryFrom<u16> for LogType {
 	}
 }
 
-#[derive(Serialize, Deserialize)]
-pub(crate) struct DocumentOperation<D = JsonValue> {
+#[derive(Serialize, Deserialize, Debug)]
+pub struct DocumentOperation {
 	#[serde(rename = "cname")]
 	collection: String,
-	data: D,
-}
-
-#[derive(Serialize, Deserialize)]
-pub(crate) struct RemoveDocumentData {
-	_key: String,
-	_rev: String,
+	data: JsonValue,
 }

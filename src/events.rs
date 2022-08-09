@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::ops::Deref;
 use std::sync::Arc;
 
-use crate::Result;
+use crate::api::DocumentOperation;
 
 #[derive(Eq, PartialEq, Hash)]
 pub enum HandlerEvent {
@@ -11,10 +11,10 @@ pub enum HandlerEvent {
 	Remove,
 }
 
-pub struct HandlerContext<T: ?Sized>(Arc<T>);
+pub struct HandlerContext<T: ?Sized>(Arc<Box<T>>);
 
-impl<T> HandlerContext<T> {
-	pub fn new(data: T) -> Self {
+impl<T: ?Sized> HandlerContext<T> {
+	pub fn new(data: Box<T>) -> Self {
 		Self(Arc::new(data))
 	}
 }
@@ -24,15 +24,15 @@ impl<T: ?Sized> HandlerContext<T> {
 		self.0.as_ref()
 	}
 
-	pub fn into_inner(self) -> Arc<T> {
+	pub fn into_inner(self) -> Arc<Box<T>> {
 		self.0
 	}
 }
 
 impl<T: ?Sized> Deref for HandlerContext<T> {
-	type Target = Arc<T>;
+	type Target = Arc<Box<T>>;
 
-	fn deref(&self) -> &Arc<T> {
+	fn deref(&self) -> &Arc<Box<T>> {
 		&self.0
 	}
 }
@@ -43,17 +43,17 @@ impl<T: ?Sized> Clone for HandlerContext<T> {
 	}
 }
 
-pub trait Handler<T: ?Sized> {
-	fn call(ctx: HandlerContext<T>) -> Result<()>;
+pub trait Handler {
+	fn call(ctx: HandlerContext<dyn Any>, doc: &DocumentOperation);
 }
 
-pub(crate) struct Subscription<T: ?Sized> {
-	callback: fn(HandlerContext<T>) -> Result<()>,
-	context: HandlerContext<T>,
+pub(crate) struct Subscription {
+	callback: fn(HandlerContext<dyn Any>, &DocumentOperation),
+	context: HandlerContext<dyn Any>,
 }
 
 pub(crate) struct SubscriptionMap {
-	map: HashMap<HandlerEvent, Vec<Box<dyn Any>>>,
+	map: HashMap<HandlerEvent, Vec<Subscription>>,
 }
 
 impl SubscriptionMap {
@@ -63,21 +63,21 @@ impl SubscriptionMap {
 		}
 	}
 
-	pub(crate) fn insert<T: ?Sized + 'static, H: Handler<T>>(
-		&mut self,
-		ev: HandlerEvent,
-		ctx: HandlerContext<T>,
-	) {
-		let subscription = Box::new(Subscription {
+	pub(crate) fn insert<H: Handler>(&mut self, ev: HandlerEvent, ctx: HandlerContext<dyn Any>) {
+		let subscription = Subscription {
 			callback: H::call,
 			context: ctx,
-		});
+		};
 
 		if let Some(v) = self.map.get_mut(&ev) {
 			v.push(subscription);
 		} else {
 			self.map.insert(ev, vec![subscription]);
 		}
+	}
+
+	pub(crate) fn get(&self, ev: &HandlerEvent) -> Option<&Vec<Subscription>> {
+		self.map.get(ev)
 	}
 }
 
@@ -94,29 +94,33 @@ impl SubscriptionManager {
 		}
 	}
 
-	pub(crate) fn insert<T: ?Sized + 'static, H: Handler<T>>(
-		&mut self,
-		ev: HandlerEvent,
-		ctx: HandlerContext<T>,
-	) {
-		self.subscriptions.insert::<T, H>(ev, ctx)
+	pub(crate) fn insert<H: Handler>(&mut self, ev: HandlerEvent, ctx: HandlerContext<dyn Any>) {
+		self.subscriptions.insert::<H>(ev, ctx)
 	}
 
-	pub(crate) fn insert_to<T: ?Sized + 'static, H: Handler<T>>(
+	pub(crate) fn insert_to<H: Handler>(
 		&mut self,
 		ev: HandlerEvent,
 		collection: String,
-		ctx: HandlerContext<T>,
+		ctx: HandlerContext<dyn Any>,
 	) {
 		if let Some(subs) = self.collection_subscriptions.get_mut(&collection) {
-			subs.insert::<T, H>(ev, ctx)
+			subs.insert::<H>(ev, ctx)
 		} else {
 			let mut map = SubscriptionMap::empty();
-			let ctx = map.insert::<T, H>(ev, ctx);
+			let ctx = map.insert::<H>(ev, ctx);
 
 			self.collection_subscriptions.insert(collection, map);
 
 			ctx
+		}
+	}
+
+	pub(crate) fn call(&self, ev: HandlerEvent, doc: &DocumentOperation) {
+		if let Some(subs) = self.subscriptions.get(&ev) {
+			for sub in subs {
+				(sub.callback)(sub.context.clone(), doc)
+			}
 		}
 	}
 }

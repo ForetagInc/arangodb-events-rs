@@ -1,8 +1,9 @@
 use hyper::http::request::Builder as HttpRequestBuilder;
 use hyper::{Body, Client, Request, Response, StatusCode, Uri};
+use std::any::Any;
 use std::collections::HashMap;
 
-use crate::api::{DocumentOperation, LogType, LoggerStateData, RemoveDocumentData};
+use crate::api::{DocumentOperation, LogType, LoggerStateData};
 use crate::deserialize::Deserializer;
 use crate::{
 	utils, Error, Handler, HandlerContext, HandlerEvent, Io, Kind, MapCrateError, Result,
@@ -214,7 +215,11 @@ impl Trigger {
 					}
 				}
 				LogType::CommitTransaction => {
-					println!("Commit transaction")
+					for (_, transaction) in &self.transactions {
+						for operation in &transaction.operations {
+							self.execute_operation(operation)
+						}
+					}
 				}
 				LogType::AbortTransaction => {
 					let tid = get_tid(line.as_str())?;
@@ -228,19 +233,28 @@ impl Trigger {
 		Ok(())
 	}
 
-	pub fn subscribe<T: 'static, H: Handler<T>>(&mut self, event: HandlerEvent, ctx: T) {
-		self.subscriptions
-			.insert::<T, H>(event, HandlerContext::new(ctx))
+	fn execute_operation(&self, op: &TransactionOperation) {
+		match op {
+			TransactionOperation::InsertOrReplaceDocument(ref doc) => {
+				self.subscriptions.call(HandlerEvent::InsertOrReplace, doc)
+			}
+			TransactionOperation::RemoveDocument(ref doc) => {
+				self.subscriptions.call(HandlerEvent::Remove, doc)
+			}
+		}
 	}
 
-	pub fn subscribe_to<T: 'static, H: Handler<T>>(
+	pub fn subscribe<H: Handler>(&mut self, event: HandlerEvent, ctx: HandlerContext<dyn Any>) {
+		self.subscriptions.insert::<H>(event, ctx)
+	}
+
+	pub fn subscribe_to<H: Handler>(
 		&mut self,
 		event: HandlerEvent,
 		collection: String,
-		ctx: T,
+		ctx: HandlerContext<dyn Any>,
 	) {
-		self.subscriptions
-			.insert_to::<T, H>(event, collection, HandlerContext::new(ctx))
+		self.subscriptions.insert_to::<H>(event, collection, ctx)
 	}
 }
 
@@ -260,7 +274,7 @@ impl Transaction {
 
 pub(crate) enum TransactionOperation {
 	InsertOrReplaceDocument(DocumentOperation),
-	RemoveDocument(DocumentOperation<RemoveDocumentData>),
+	RemoveDocument(DocumentOperation),
 }
 
 #[cfg(test)]

@@ -14,7 +14,7 @@ pub enum HandlerEvent {
 pub struct HandlerContext<T: ?Sized>(Arc<Box<T>>);
 
 impl<T: ?Sized> HandlerContext<T> {
-	pub fn new(data: Box<T>) -> Self {
+	pub(crate) fn new(data: Box<T>) -> Self {
 		Self(Arc::new(data))
 	}
 }
@@ -52,6 +52,16 @@ pub trait Handler: 'static {
 		if let Some(data) = ctx.downcast_ref::<Self::Context>() {
 			Self::call(&data, doc);
 		}
+	}
+}
+
+pub struct HandlerContextFactory;
+
+// This factory makes it possible to return `dyn Any` type directly, to avoid needing for
+// specifying type on the library use code
+impl HandlerContextFactory {
+	pub fn from<T: Any>(data: T) -> HandlerContext<dyn Any> {
+		HandlerContext::new(Box::new(data))
 	}
 }
 

@@ -1,51 +1,47 @@
 # (Rust) Arango Triggers
 
-A library to add triggers to your ArangoDB database, when events occur (insert, update, delete etc.) on your collections.
+A library to add triggers to your ArangoDB database, when events occur (insert, update, delete etc.) on your
+collections.
 
 ## Usage
 
 ```rust
-use rust_arango_triggers::{Trigger, TriggerConfig};
+use rust_arango_trigger::api::DocumentOperation;
+use rust_arango_trigger::{Handler, Trigger, HandlerContextFactory};
 
-fn main() {
-	let trigger = Trigger::new("http://localhost:8529", "database");
+pub struct Example;
 
-	/**
-	 *  Possible events:
-	 *  - insert/update
-	 *  - delete
-	 */
+pub struct ExampleContext {
+    pub data: u8,
+}
 
-	// Subscribe to all the events on the users collection
-	trigger.subscribe(vec![
-		TriggerConfig::new("users")
-	]);
+impl Handler for Example {
+    type Context = ExampleContext;
 
-	// Subscribe to only insert/update events on the users collection
-	trigger.subscribe(vec![
-		TriggerConfig::new_with_events("users", vec!["insert/update"])
-	]);
+    fn call(ctx: &ExampleContext, doc: &DocumentOperation) {
+        println!("{}", ctx.data);
+    }
+}
 
-	// Subscribe to only delete events on the users collection with the key "252525"
-	trigger.subscribe(vec![
-		TriggerConfig::new_with_events_and_keys("users", vec!["insert/update"], vec!["252525"]),
-	]);
+#[tokio::main]
+async fn main() {
+    let mut trigger = Trigger::new_auth(
+        "http://localhost:8529/",
+        "database",
+        TriggerAuthentication::new("user", "password"),
+    );
 
-	// Unsubscribe from all events on the users collection
-	trigger.unsubscribe(vec![
-		TriggerConfig::new("users")
-	]);
+    trigger.subscribe::<Example>(
+        HandlerEvent::InsertOrReplace,
+        HandlerContextFactory::from(ExampleContext {
+            data: 10,
+        })
+    );
 
-	// Unsubscribe from only delete events on the users collection
-	trigger.unsubscribe(vec![
-		TriggerConfig::new_with_events("users", vec!["delete"])
-	]);
+    trigger.init().await.unwrap();
 
-	// Unsubscribe from only delete events on the users collection with the key "252525"
-	trigger.unsubscribe(vec![
-		TriggerConfig::new_with_events_and_keys("users", vec!["delete"], vec!["252525"])
-	]);
-
-	trigger.start();
+    loop {
+        trigger.listen().await.unwrap();
+    }
 }
 ```

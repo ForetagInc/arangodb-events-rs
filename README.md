@@ -1,4 +1,4 @@
-# Arango Events
+# ArangoDB Events
 
 A library to add triggers to your ArangoDB database, when events occur (insert, update, delete etc.) on your
 collections.
@@ -6,8 +6,8 @@ collections.
 ## Usage
 
 ```rust
-use rust_arango_trigger::api::DocumentOperation;
-use rust_arango_trigger::{Handler, Trigger, HandlerContextFactory};
+use arangodb_events_rs::api::DocumentOperation;
+use arangodb_events_rs::{Handler, Trigger, HandlerContextFactory};
 
 pub struct Example;
 

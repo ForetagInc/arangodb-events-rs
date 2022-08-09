@@ -1,5 +1,5 @@
 [package]
-name = 'rust_arango_trigger'
+name = 'arangodb_events_rs'
 version = '0.1.0'
 edition = '2021'
 authors = ['Foretag Inc. <contact@foret.ag>', 'Chiru B <chirub@foretag.co>']

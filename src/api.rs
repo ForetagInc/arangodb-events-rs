@@ -69,6 +69,6 @@ impl TryFrom<u16> for LogType {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct DocumentOperation {
 	#[serde(rename = "cname")]
-	collection: String,
-	data: JsonValue,
+	pub collection: String,
+	pub data: JsonValue,
 }

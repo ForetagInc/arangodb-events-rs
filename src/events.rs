@@ -119,26 +119,39 @@ impl SubscriptionManager {
 	pub(crate) fn insert_to<H: Handler>(
 		&mut self,
 		ev: HandlerEvent,
-		collection: String,
+		collection: &str,
 		ctx: HandlerContext<dyn Any>,
 	) {
-		if let Some(subs) = self.collection_subscriptions.get_mut(&collection) {
+		if let Some(subs) = self.collection_subscriptions.get_mut(collection) {
 			subs.insert::<H>(ev, ctx)
 		} else {
 			let mut map = SubscriptionMap::empty();
 			let ctx = map.insert::<H>(ev, ctx);
 
-			self.collection_subscriptions.insert(collection, map);
+			self.collection_subscriptions
+				.insert(collection.to_string(), map);
 
 			ctx
 		}
 	}
 
-	pub(crate) fn call(&self, ev: HandlerEvent, doc: &DocumentOperation) {
-		if let Some(subs) = self.subscriptions.get(&ev) {
-			for sub in subs {
-				(sub.callback)(sub.context.clone(), doc)
+	pub(crate) fn call(&self, ev: HandlerEvent, doc: &DocumentOperation, collection: Option<&str>) {
+		fn dispatch_event(e: &HandlerEvent, map: &SubscriptionMap, doc: &DocumentOperation) {
+			if let Some(subs) = map.get(e) {
+				for sub in subs {
+					(sub.callback)(sub.context.clone(), doc)
+				}
 			}
+		}
+
+		// Call generic subscriptions with no collection attached
+		dispatch_event(&ev, &self.subscriptions, doc);
+
+		// Call subscriptions for specific collection if matches
+		if let Some(col) = collection {
+			self.collection_subscriptions
+				.get(col)
+				.map(|m| dispatch_event(&ev, m, doc));
 		}
 	}
 }

@@ -146,13 +146,9 @@ impl Trigger {
 				if !next_log_tick.eq(&current_tick) {
 					let mut deserializer = Deserializer::new(response.into_body());
 
-					println!("----------{}----------------", current_tick);
-
 					while let Some(line) = deserializer.read_line().await? {
 						self.process_line(line)?;
 					}
-
-					println!("---------------------------------")
 				}
 
 				Ok(())
@@ -192,7 +188,7 @@ impl Trigger {
 				LogType::StartTransaction => {
 					let tid = get_tid(line.as_str())?;
 
-					self.transactions.insert(tid.clone(), Transaction::new(tid));
+					self.transactions.insert(tid.clone(), Transaction::empty());
 				}
 				LogType::RemoveDocument | LogType::InsertOrReplaceDocument => {
 					let tid = get_tid(line.as_str())?;
@@ -250,11 +246,14 @@ impl Trigger {
 
 	fn execute_operation(&self, op: &TransactionOperation) {
 		match op {
-			TransactionOperation::InsertOrReplaceDocument(ref doc) => {
-				self.subscriptions.call(HandlerEvent::InsertOrReplace, doc)
-			}
+			TransactionOperation::InsertOrReplaceDocument(ref doc) => self.subscriptions.call(
+				HandlerEvent::InsertOrReplace,
+				doc,
+				Some(doc.collection.as_str()),
+			),
 			TransactionOperation::RemoveDocument(ref doc) => {
-				self.subscriptions.call(HandlerEvent::Remove, doc)
+				self.subscriptions
+					.call(HandlerEvent::Remove, doc, Some(doc.collection.as_str()))
 			}
 		}
 	}
@@ -266,7 +265,7 @@ impl Trigger {
 	pub fn subscribe_to<H: Handler>(
 		&mut self,
 		event: HandlerEvent,
-		collection: String,
+		collection: &str,
 		ctx: HandlerContext<dyn Any>,
 	) {
 		self.subscriptions.insert_to::<H>(event, collection, ctx)
@@ -274,14 +273,12 @@ impl Trigger {
 }
 
 pub(crate) struct Transaction {
-	id: String,
 	operations: Vec<TransactionOperation>,
 }
 
 impl Transaction {
-	pub(crate) fn new(id: String) -> Self {
+	pub(crate) fn empty() -> Self {
 		Self {
-			id,
 			operations: Vec::new(),
 		}
 	}
@@ -290,22 +287,4 @@ impl Transaction {
 pub(crate) enum TransactionOperation {
 	InsertOrReplaceDocument(DocumentOperation),
 	RemoveDocument(DocumentOperation),
-}
-
-#[cfg(test)]
-mod tests {
-	use super::*;
-
-	#[tokio::test]
-	pub async fn it_inits() -> Result<()> {
-		let mut trigger = Trigger::new_auth(
-			"http://localhost:8529/",
-			"_system",
-			TriggerAuthentication::new("root", "root"),
-		);
-
-		trigger.init().await?;
-
-		Ok(())
-	}
 }

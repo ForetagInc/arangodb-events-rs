@@ -1,11 +1,18 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value as JsonValue;
 
+/// This data comes from doing an HTTP request to ArangoDB:
+///
+/// **`GET /_api/replication/logger-state`**
+///
+/// This data is gonna be used only on the initialization of a Trigger to retrieve information to
+/// be used on the Trigger workflow
 #[derive(Serialize, Deserialize)]
 pub(crate) struct LoggerStateData {
 	pub(crate) state: LoggerState,
 }
 
+/// State property coming from [`LoggerStateData`]
 #[derive(Serialize, Deserialize)]
 pub(crate) struct LoggerState {
 	pub(crate) running: bool,
@@ -18,24 +25,42 @@ pub(crate) struct LoggerState {
 	pub(crate) time: String,
 }
 
+/// All log types supported for ArangoDB replication API
 #[derive(Serialize, Deserialize)]
 pub(crate) enum LogType {
+	/// Create a database
 	CreateDatabase = 1100,
+	/// Drop a database
 	DropDatabase = 1101,
+	/// Create a collection
 	CreateCollection = 2000,
+	/// Drop a collection
 	DropCollection = 2001,
+	/// Rename a collection
 	RenameCollection = 2002,
+	/// Change collection properties
 	ChangeCollection = 2003,
+	/// Truncate a collection
 	TruncateCollection = 2004,
+	/// Create an index
 	CreateIndex = 2100,
+	/// Drop an index
 	DropIndex = 2101,
+	/// Create a view
 	CreateView = 2110,
+	/// Drop a view
 	DropView = 2111,
+	/// Change view properties (including the name)
 	ChangeView = 2112,
+	/// Mark the beginning of a transaction
 	StartTransaction = 2200,
+	/// Mark the successful end of a transaction
 	CommitTransaction = 2201,
+	/// Mark the abortion of a transaction
 	AbortTransaction = 2202,
+	/// Insert or replace a document
 	InsertOrReplaceDocument = 2300,
+	/// Remove a document
 	RemoveDocument = 2302,
 }
 
@@ -66,6 +91,12 @@ impl TryFrom<u16> for LogType {
 	}
 }
 
+/// JSON structure for [`LogType::InsertOrReplaceDocument`] and [`LogType::RemoveDocument`] log
+/// types coming from doing an HTTP request to ArangoDB:
+///
+/// **`GET /_api/replication/logger-follow`**
+///
+/// This data is then gonna be dispatched to event handlers
 #[derive(Serialize, Deserialize, Debug)]
 pub struct DocumentOperation {
 	#[serde(rename = "cname")]

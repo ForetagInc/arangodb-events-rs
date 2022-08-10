@@ -1,11 +1,15 @@
 use std::fmt;
+use std::result::Result as StdResult;
 
-pub(crate) type StdResult<T, E> = std::result::Result<T, E>;
-
+/// A `Result` typedef to use with the [`crate::Error`] type
 pub type Result<T> = StdResult<T, Error>;
 
 type Cause = Box<dyn std::error::Error>;
 
+/// A generic "error" for `arangodb_events_rs` crate
+///
+/// This crate converts all dependency errors into a generic error. Consumers of this crate can
+/// typically consume and work with this form of error for conversions with the `?` operator.
 pub struct Error {
 	inner: Box<ErrorImpl>,
 }
@@ -17,22 +21,33 @@ struct ErrorImpl {
 
 #[derive(Debug)]
 pub(super) enum Kind {
+	/// HTTP Error coming from `hyper` library while doing an HTTP request. It'll have attached
+	/// the original error for more details
 	Http,
+	/// All the errors coming from the communication with the ArangoDB API
 	ArangoDB(ArangoDBError),
+	/// I/O Errors
 	Io(Io),
 }
 
 #[derive(Debug)]
 pub(super) enum Io {
+	/// I/O Errors that occurred while trying to read or write to a network stream or parsing data
 	Serialize,
+	/// Other I/O errors, typically converting all [`std::io::Error`] into this
 	Other,
 }
 
 #[derive(Debug)]
 pub(super) enum ArangoDBError {
+	/// HTTP non-successful requests, returning `4xx` or `5xx` HTTP Status codes
 	HttpError(hyper::StatusCode),
 }
 
+/// Trait to add [`map_crate_err`] method for all implementations that converts external error
+/// to this crate [`Error`]
+///
+/// [`map_crate_err`]: MapCrateError::map_crate_err
 pub trait MapCrateError<T, E: Into<Error>> {
 	fn map_crate_err(self) -> Result<T>;
 }
@@ -44,21 +59,41 @@ impl<T, E: Into<Error>> MapCrateError<T, E> for StdResult<T, E> {
 }
 
 impl Error {
+	/// Creates a new Error instance
+	///
+	/// # Arguments
+	///
+	/// * `kind`: Error type, see [`Kind`]
+	///
+	/// returns: [`Error`]
 	pub(super) fn new(kind: Kind) -> Error {
 		Error {
 			inner: Box::new(ErrorImpl { kind, cause: None }),
 		}
 	}
 
+	/// Attaches to an error instance a inner reason
+	///
+	/// # Arguments
+	///
+	/// * `cause`: The error reason
+	///
+	/// returns: [`Error`]
 	pub(super) fn with<C: Into<Cause>>(mut self, cause: C) -> Error {
 		self.inner.cause = Some(cause.into());
 		self
 	}
 
+	/// Returns error type
+	///
+	/// returns: &[`Kind`]
 	pub(super) fn kind(&self) -> &Kind {
 		&self.inner.kind
 	}
 
+	/// Returns error description based on its type
+	///
+	/// returns: [`String`]
 	fn description(&self) -> String {
 		match self.inner.kind {
 			Kind::Http => "HTTP client error".to_string(),

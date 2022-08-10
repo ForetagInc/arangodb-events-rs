@@ -197,21 +197,34 @@ impl Trigger {
 				LogType::RemoveDocument | LogType::InsertOrReplaceDocument => {
 					let tid = get_tid(line.as_str())?;
 
-					// TODO: Process unique operations with transaction id = 0
+					fn create_operation(
+						line: &str,
+						log_type: LogType,
+					) -> Result<TransactionOperation> {
+						Ok(if matches!(log_type, LogType::RemoveDocument) {
+							TransactionOperation::RemoveDocument(
+								serde_json::from_str(line).map_crate_err()?,
+							)
+						} else {
+							TransactionOperation::InsertOrReplaceDocument(
+								serde_json::from_str(line).map_crate_err()?,
+							)
+						})
+					}
 
-					// If the transaction's id is not 0 and it's not on already started transactions
-					// we just ignore the operation as it shouldn't get parsed
-					if let Some(t) = self.transactions.get_mut(tid.as_str()) {
-						t.operations
-							.push(if matches!(log_type, LogType::RemoveDocument) {
-								TransactionOperation::RemoveDocument(
-									serde_json::from_str(line.as_str()).map_crate_err()?,
-								)
-							} else {
-								TransactionOperation::InsertOrReplaceDocument(
-									serde_json::from_str(line.as_str()).map_crate_err()?,
-								)
-							})
+					// The field tid might contain the value “0” to identify a single operation
+					// that is not part of a multi-document transaction
+					if tid == "0" {
+						let single_op = create_operation(line.as_str(), log_type)?;
+
+						self.execute_operation(&single_op);
+					} else {
+						// If the transaction's id is not 0 and it's not on already started
+						// transactions we just ignore the operation as it shouldn't get parsed
+						if let Some(t) = self.transactions.get_mut(tid.as_str()) {
+							t.operations
+								.push(create_operation(line.as_str(), log_type)?)
+						}
 					}
 				}
 				LogType::CommitTransaction => {

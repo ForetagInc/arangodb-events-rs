@@ -9,17 +9,17 @@ collections.
 use arangodb_events_rs::api::DocumentOperation;
 use arangodb_events_rs::{Handler, Trigger, HandlerContextFactory};
 
-pub struct Example;
+pub struct GlobalHandler;
 
-pub struct ExampleContext {
+pub struct GlobalHandlerContext {
     pub data: u8,
 }
 
-impl Handler for Example {
-    type Context = ExampleContext;
+impl Handler for GlobalHandler {
+    type Context = GlobalHandlerContext;
 
-    fn call(ctx: &ExampleContext, doc: &DocumentOperation) {
-        println!("{}", ctx.data);
+    fn call(ctx: &GlobalHandlerContext, doc: &DocumentOperation) {
+        println!("{}", ctx.data); // 10
     }
 }
 
@@ -31,17 +31,31 @@ async fn main() {
         TriggerAuthentication::new("user", "password"),
     );
 
-    trigger.subscribe::<Example>(
+    trigger.subscribe::<GlobalHandler>(
         HandlerEvent::InsertOrReplace,
-        HandlerContextFactory::from(ExampleContext {
+        HandlerContextFactory::from(GlobalHandlerContext {
             data: 10,
         })
-    );
+    ); // This subscribes for all Insert or Replace operations on the database
 
-    trigger.init().await.unwrap();
+    trigger.subscribe_to::<AccountHandler>(
+        HandlerEvent::Remove,
+        "accounts",
+        HandlerContextFactory::from(AccountHandlerContext {
+            data: 50,
+        })
+    ); // This is gonna listen only for Remove operations over accounts table
+
+    trigger
+        .init()
+        .await
+        .expect("Error initializing ArangoDB Trigger");
 
     loop {
-        trigger.listen().await.unwrap();
+        trigger
+            .listen()
+            .await
+            .expect("Error on Trigger listener loop");
     }
 }
 ```

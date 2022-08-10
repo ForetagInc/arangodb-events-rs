@@ -228,8 +228,10 @@ impl Trigger {
 					}
 				}
 				LogType::CommitTransaction => {
-					for (_, transaction) in &self.transactions {
-						for operation in &transaction.operations {
+					let tid = get_tid(line.as_str())?;
+
+					if let Some(t) = self.transactions.get(tid.as_str()) {
+						for operation in &t.operations {
 							self.execute_operation(operation)
 						}
 					}

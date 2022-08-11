@@ -37,7 +37,7 @@ pub(crate) fn get_string_between(str: &str, start: usize, count: usize) -> Strin
 /// ```
 /// let data = "My car is red";
 ///
-/// let out = get_string_between(data, 3, 'e');
+/// let out = get_string_until(data, 3, 'e');
 ///
 /// println!("{:?}", out) // "car is r"
 /// ```

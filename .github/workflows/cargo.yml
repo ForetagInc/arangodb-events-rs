@@ -1,57 +1,56 @@
 name: cargo
 
 on:
-    push:
-        branches:
-            - master
+  release:
+    types: [published]
 
 env:
-    CARGO_TERM_COLOR: always
+  CARGO_TERM_COLOR: always
 
 jobs:
-    check:
-        name: Rust check
-        runs-on: ubuntu-latest
-        steps:
-            - uses: actions/checkout@v2
-            - uses: actions-rs/toolchain@v1
-              with:
-                  profile: minimal
-                  toolchain: stable
-                  override: true
-            - uses: actions-rs/cargo@v1
-              with:
-                  command: check
+  check:
+    name: Rust check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - uses: actions-rs/cargo@v1
+        with:
+          command: check
 
-    test:
-        name: Rust tests
-        runs-on: ubuntu-latest
-        steps:
-            - uses: actions/checkout@v2
-            - uses: actions-rs/toolchain@v1
-              with:
-                  profile: minimal
-                  toolchain: stable
-                  override: true
-            - uses: actions-rs/cargo@v1
-              with:
-                  command: test
+  test:
+    name: Rust tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+      - uses: actions-rs/cargo@v1
+        with:
+          command: test
 
-    publish:
-        name: Build and publish
-        runs-on: macos-12
-        steps:
-            - uses: actions/checkout@v3
-            - name: Run cargo build
-              uses: actions-rs/cargo@v1
-              with:
-                  command: build --release
-            - name: Run cargo test
-              uses: actions-rs/cargo@v1
-              with:
-                  command: test --verbose
-            - uses: katyo/publish-crates@v1
-              with:
-                  check-repo: true
-                  registry-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-                  ignore-unpublished-changes: true
+  publish:
+    name: Build and publish
+    runs-on: macos-12
+    steps:
+      - uses: actions/checkout@v3
+      - name: Run cargo build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build --release
+      - name: Run cargo test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test --verbose
+      - uses: katyo/publish-crates@v1
+        with:
+          check-repo: true
+          registry-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          ignore-unpublished-changes: true

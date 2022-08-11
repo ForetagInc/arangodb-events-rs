@@ -47,10 +47,6 @@ jobs:
               uses: actions-rs/cargo@v1
               with:
                   command: build --release
-            - name: Run cargo test
-              uses: actions-rs/cargo@v1
-              with:
-                  command: test --verbose
             - uses: katyo/publish-crates@v1
               with:
                   check-repo: true

@@ -2,13 +2,11 @@
 name = 'arangodb_events_rs'
 version = '0.1.0'
 edition = '2021'
-authors = ['Foretag Inc. <contact@foret.ag>', 'Chiru B <chirub@foretag.co>']
-repository = 'https://github.com/ForetagInc/rust-arango'
-keywords = ['arango', 'arangoDB', 'trigger', 'database']
+authors = ['Foretag Inc. <contact@foret.ag>']
+repository = 'https://github.com/ForetagInc/arangodb-events-rs'
+keywords = ['arango', 'arangoDB', 'events', 'trigger', 'database']
 categories = ['database']
 exclude = ['.gitignore', '.github']
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lib]
 bench = true

@@ -3,14 +3,15 @@
 version = 3
 
 [[package]]
-name = "async-recursion"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2cda8f4bcc10624c4e85bc66b3f452cca98cfa5ca002dc83a16aad2367641bea"
+name = "arangodb_events_rs"
+version = "0.1.0"
 dependencies = [
- "proc-macro2",
- "quote",
- "syn",
+ "base64",
+ "futures-util",
+ "hyper",
+ "serde",
+ "serde_json",
+ "tokio",
 ]
 
 [[package]]
@@ -269,19 +270,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3bcdf212e9776fbcb2d23ab029360416bb1706b1aea2d1a5ba002727cbcab804"
 dependencies = [
  "proc-macro2",
-]
-
-[[package]]
-name = "rust_arango_trigger"
-version = "0.1.0"
-dependencies = [
- "async-recursion",
- "base64",
- "futures-util",
- "hyper",
- "serde",
- "serde_json",
- "tokio",
 ]
 
 [[package]]

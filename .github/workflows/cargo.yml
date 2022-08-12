@@ -23,6 +23,7 @@ jobs:
                   command: check
 
     publish:
+        needs: check
         name: Build and publish
         runs-on: macos-12
         steps:
@@ -30,7 +31,8 @@ jobs:
             - name: Run cargo build
               uses: actions-rs/cargo@v1
               with:
-                  command: build --release
+                  command: build
+                  args: --release --all-features
             - uses: katyo/publish-crates@v1
               with:
                   check-repo: true

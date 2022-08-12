@@ -23,7 +23,6 @@ jobs:
                   command: check
 
     publish:
-        needs: test
         name: Build and publish
         runs-on: macos-12
         steps:

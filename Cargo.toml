@@ -6,6 +6,8 @@ authors = ['Foretag Inc. <contact@foret.ag>']
 repository = 'https://github.com/ForetagInc/arangodb-events-rs'
 keywords = ['arango', 'arangoDB', 'events', 'trigger', 'database']
 categories = ['database']
+description = 'Subscribe to real time events on your ArangoDB database in Rust'
+license = "MIT/Apache-2.0"
 exclude = ['.gitignore', '.github']
 
 [lib]

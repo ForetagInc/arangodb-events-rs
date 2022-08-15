@@ -5,7 +5,9 @@ collections.
 
 [![crates.io](https://img.shields.io/crates/v/arangodb_events_rs?label=latest&logo=rust)](https://crates.io/crates/arangodb_events_rs)
 ![Downloads](https://img.shields.io/crates/d/arangodb_events_rs.svg)
+![Build](https://img.shields.io/github/workflow/status/ForetagInc/arangodb-events-rs/cargo)
 [![Documentation](https://docs.rs/arangodb_events_rs/badge.svg?version=latest)](https://docs.rs/arangodb_events_rs/latest)
+
 
 ## Documentation
 

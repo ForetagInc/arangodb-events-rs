@@ -104,18 +104,44 @@ impl<T: ?Sized> Clone for HandlerContext<T> {
 pub trait Handler: 'static {
 	type Context;
 
+	#[cfg(feature = "async")]
+	/// Method called when the [`HandlerEvent`] the Handler is subscribed to gets dispatched from
+	/// the application [`Trigger`]
+	///
+	/// Note: with `async` feature enabled, this method returns [`AsyncHandlerOutput`]
+	fn call(ctx: &Self::Context, doc: &DocumentOperation) -> AsyncHandlerOutput;
+
+	#[cfg(not(feature = "async"))]
 	/// Method called when the [`HandlerEvent`] the Handler is subscribed to gets dispatched from
 	/// the application [`Trigger`]
 	fn call(ctx: &Self::Context, doc: &DocumentOperation);
 
+	#[cfg(feature = "async")]
 	/// Dispatch the event, this method basically downcast the dynamic [`HandlerContext`] into
 	/// [`HandlerContext<Self::Context>`]
-	fn dispatch(ctx: HandlerContext<dyn Any>, doc: &DocumentOperation) {
-		if let Some(data) = ctx.downcast_ref::<Self::Context>() {
-			Self::call(&data, doc);
-		}
+	///
+	/// Note: with `async` feature enabled, this method returns [`Option<AsyncHandlerOutput>`] so we
+	/// encapsulate the [`Handler::call`] into a pinned box.
+	fn dispatch(
+		ctx: HandlerContext<dyn Any>,
+		doc: &DocumentOperation,
+	) -> Option<AsyncHandlerOutput> {
+		ctx.downcast_ref::<Self::Context>()
+			.map(|c| Self::call(c, doc))
+	}
+
+	#[cfg(not(feature = "async"))]
+	/// Dispatch the event, this method basically downcast the dynamic [`HandlerContext`] into
+	/// [`HandlerContext<Self::Context>`]
+	fn dispatch(ctx: HandlerContext<dyn Any>, doc: &DocumentOperation) -> Option<()> {
+		ctx.downcast_ref::<Self::Context>()
+			.map(|c| Self::call(c, doc))
 	}
 }
+
+#[cfg(feature = "async")]
+/// Type alias for [`Handler::call`] method output when `async` feature enabled
+pub type AsyncHandlerOutput = std::pin::Pin<Box<dyn std::future::Future<Output = ()>>>;
 
 /// Factory to create HandlerContext.
 ///
@@ -162,7 +188,10 @@ impl HandlerContextFactory {
 
 /// Event subscription
 pub(crate) struct Subscription {
-	callback: fn(HandlerContext<dyn Any>, &DocumentOperation),
+	#[cfg(feature = "async")]
+	callback: fn(HandlerContext<dyn Any>, &DocumentOperation) -> Option<AsyncHandlerOutput>,
+	#[cfg(not(feature = "async"))]
+	callback: fn(HandlerContext<dyn Any>, &DocumentOperation) -> Option<()>,
 	context: HandlerContext<dyn Any>,
 }
 

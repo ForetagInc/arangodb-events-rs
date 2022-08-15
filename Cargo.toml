@@ -10,6 +10,9 @@ description = 'Subscribe to real time events on your ArangoDB database in Rust'
 license = "MIT/Apache-2.0"
 exclude = ['.gitignore', '.github']
 
+[features]
+async = []
+
 [lib]
 bench = true
 

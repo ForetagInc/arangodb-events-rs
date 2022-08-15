@@ -84,13 +84,6 @@ impl Error {
 		self
 	}
 
-	/// Returns error type
-	///
-	/// returns: &[`Kind`]
-	pub(super) fn kind(&self) -> &Kind {
-		&self.inner.kind
-	}
-
 	/// Returns error description based on its type
 	///
 	/// returns: [`String`]

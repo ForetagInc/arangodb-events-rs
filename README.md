@@ -20,7 +20,7 @@ collections.
 
 Add the crate to your `Cargo.toml`:
 ```toml
-arangodb_events_rs = "0.1.5"
+arangodb_events_rs = "0.1.6"
 ```
 
 ## Usage

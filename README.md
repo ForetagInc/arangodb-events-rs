@@ -59,3 +59,6 @@ async fn main() {
     }
 }
 ```
+
+## Features
+* `async` Enables asynchronous `Handler::call` method

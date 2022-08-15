@@ -291,7 +291,7 @@ impl Trigger {
 					let mut deserializer = Deserializer::new(response.into_body());
 
 					while let Some(line) = deserializer.read_line().await? {
-						self.process_line(line)?;
+						self.process_line(line).await?;
 					}
 				}
 
@@ -302,7 +302,7 @@ impl Trigger {
 	}
 
 	/// Processes one logger line
-	fn process_line(&mut self, line: String) -> Result<()> {
+	async fn process_line(&mut self, line: String) -> Result<()> {
 		// We do this kind of parsing with indexes and characters instead of serializing or
 		// deserializing JSON directly using `serde_json` because it'd consume a lot of resources
 		// for some operations that may not be needed to be parsed.
@@ -358,7 +358,7 @@ impl Trigger {
 					if tid == "0" {
 						let single_op = create_operation(line.as_str(), log_type)?;
 
-						self.execute_operation(&single_op);
+						self.execute_operation(&single_op).await;
 					} else {
 						// If the transaction's id is not 0 and it's not on already started
 						// transactions we just ignore the operation as it shouldn't get parsed
@@ -373,7 +373,7 @@ impl Trigger {
 
 					if let Some(t) = self.transactions.get(tid.as_str()) {
 						for operation in &t.operations {
-							self.execute_operation(operation)
+							self.execute_operation(operation).await
 						}
 					}
 				}
@@ -390,16 +390,21 @@ impl Trigger {
 	}
 
 	/// Executes a [`TransactionOperation`]
-	fn execute_operation(&self, op: &TransactionOperation) {
+	async fn execute_operation(&self, op: &TransactionOperation) {
 		match op {
-			TransactionOperation::InsertOrReplaceDocument(ref doc) => self.subscriptions.call(
-				HandlerEvent::InsertOrReplace,
-				doc,
-				Some(doc.collection.as_str()),
-			),
+			TransactionOperation::InsertOrReplaceDocument(ref doc) => {
+				self.subscriptions
+					.call(
+						HandlerEvent::InsertOrReplace,
+						doc,
+						Some(doc.collection.as_str()),
+					)
+					.await
+			}
 			TransactionOperation::RemoveDocument(ref doc) => {
 				self.subscriptions
 					.call(HandlerEvent::Remove, doc, Some(doc.collection.as_str()))
+					.await
 			}
 		}
 	}

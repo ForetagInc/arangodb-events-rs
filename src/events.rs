@@ -109,39 +109,36 @@ pub trait Handler: 'static {
 	/// the application [`Trigger`]
 	///
 	/// Note: with `async` feature enabled, this method returns [`AsyncHandlerOutput`]
-	fn call(ctx: &Self::Context, doc: &DocumentOperation) -> AsyncHandlerOutput;
+	fn call<'a>(ctx: &'a Self::Context, doc: &'a DocumentOperation) -> AsyncHandlerOutput<'a>;
 
 	#[cfg(not(feature = "async"))]
 	/// Method called when the [`HandlerEvent`] the Handler is subscribed to gets dispatched from
 	/// the application [`Trigger`]
 	fn call(ctx: &Self::Context, doc: &DocumentOperation);
 
-	#[cfg(feature = "async")]
 	/// Dispatch the event, this method basically downcast the dynamic [`HandlerContext`] into
 	/// [`HandlerContext<Self::Context>`]
 	///
 	/// Note: with `async` feature enabled, this method returns [`Option<AsyncHandlerOutput>`] so we
 	/// encapsulate the [`Handler::call`] into a pinned box.
-	fn dispatch(
-		ctx: HandlerContext<dyn Any>,
-		doc: &DocumentOperation,
-	) -> Option<AsyncHandlerOutput> {
-		ctx.downcast_ref::<Self::Context>()
-			.map(|c| Self::call(c, doc))
-	}
+	fn dispatch<'a>(
+		ctx: &'a HandlerContext<dyn Any>,
+		doc: &'a DocumentOperation,
+	) -> Option<AsyncHandlerOutput<'a>> {
+		if let Some(c) = ctx.downcast_ref::<Self::Context>() {
+			#[cfg(feature = "async")]
+			return Some(Self::call(c, doc));
 
-	#[cfg(not(feature = "async"))]
-	/// Dispatch the event, this method basically downcast the dynamic [`HandlerContext`] into
-	/// [`HandlerContext<Self::Context>`]
-	fn dispatch(ctx: HandlerContext<dyn Any>, doc: &DocumentOperation) -> Option<()> {
-		ctx.downcast_ref::<Self::Context>()
-			.map(|c| Self::call(c, doc))
+			#[cfg(not(feature = "async"))]
+			return Some(Box::pin(async move { Self::call(c, doc) }));
+		}
+
+		None
 	}
 }
 
-#[cfg(feature = "async")]
-/// Type alias for [`Handler::call`] method output when `async` feature enabled
-pub type AsyncHandlerOutput = std::pin::Pin<Box<dyn std::future::Future<Output = ()>>>;
+/// Type alias for [`Handler::call`] method output
+pub type AsyncHandlerOutput<'a> = std::pin::Pin<Box<dyn std::future::Future<Output = ()> + 'a>>;
 
 /// Factory to create HandlerContext.
 ///
@@ -188,10 +185,10 @@ impl HandlerContextFactory {
 
 /// Event subscription
 pub(crate) struct Subscription {
-	#[cfg(feature = "async")]
-	callback: fn(HandlerContext<dyn Any>, &DocumentOperation) -> Option<AsyncHandlerOutput>,
-	#[cfg(not(feature = "async"))]
-	callback: fn(HandlerContext<dyn Any>, &DocumentOperation) -> Option<()>,
+	callback: for<'a> fn(
+		&'a HandlerContext<dyn Any>,
+		&'a DocumentOperation,
+	) -> Option<AsyncHandlerOutput<'a>>,
 	context: HandlerContext<dyn Any>,
 }
 
@@ -316,23 +313,39 @@ impl SubscriptionManager {
 	/// * `doc`: The [`DocumentOperation`] data
 	/// * `collection`: [`Some`] to trigger collection-attached [`Subscription`]  callbacks or
 	/// [`None`] to trigger only global [`Subscription`] callbacks
-	pub(crate) fn call(&self, ev: HandlerEvent, doc: &DocumentOperation, collection: Option<&str>) {
-		fn dispatch_event(e: &HandlerEvent, map: &SubscriptionMap, doc: &DocumentOperation) {
+	pub(crate) async fn call(
+		&self,
+		ev: HandlerEvent,
+		doc: &DocumentOperation,
+		collection: Option<&str>,
+	) {
+		async fn dispatch_event(e: &HandlerEvent, map: &SubscriptionMap, doc: &DocumentOperation) {
 			if let Some(subs) = map.get(e) {
 				for sub in subs {
-					(sub.callback)(sub.context.clone(), doc)
+					if let Some(cb) = (sub.callback)(&sub.context, doc) {
+						cb.await
+					} else {
+						fn print_warn<T>(_: T) {
+							println!(
+								"arangodb_events_rs: warn: unable to downcast context for {:?}",
+								std::any::type_name::<T>()
+							)
+						}
+
+						print_warn(sub.context.get_ref())
+					}
 				}
 			}
 		}
 
 		// Call generic subscriptions with no collection attached
-		dispatch_event(&ev, &self.subscriptions, doc);
+		dispatch_event(&ev, &self.subscriptions, doc).await;
 
 		// Call subscriptions for specific collection if matches
 		if let Some(col) = collection {
-			self.collection_subscriptions
-				.get(col)
-				.map(|m| dispatch_event(&ev, m, doc));
+			if let Some(map) = self.collection_subscriptions.get(col) {
+				dispatch_event(&ev, map, doc).await;
+			}
 		}
 	}
 }

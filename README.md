@@ -3,6 +3,24 @@
 A library to add triggers to your ArangoDB database, when events occur (insert, update, delete etc.) on your
 collections.
 
+[![crates.io](https://img.shields.io/crates/v/arangodb_events_rs?label=latest&logo=rust)](https://crates.io/crates/arangodb_events_rs)
+![Downloads](https://img.shields.io/crates/d/arangodb_events_rs.svg)
+[![Documentation](https://docs.rs/arangodb_events_rs/badge.svg?version=latest)](https://docs.rs/arangodb_events_rs/latest)
+
+## Documentation
+
+- [API Documentation](https://docs.rs/arangodb_events_rs/)
+
+## Features
+- `async` Enables asynchronous `Handler::call` method
+
+## Installation
+
+Add the crate to your `Cargo.toml`:
+```toml
+arangodb_events_rs = "0.1.5"
+```
+
 ## Usage
 
 ```rust
@@ -59,6 +77,3 @@ async fn main() {
     }
 }
 ```
-
-## Features
-* `async` Enables asynchronous `Handler::call` method

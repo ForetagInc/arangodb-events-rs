@@ -185,6 +185,7 @@ impl HandlerContextFactory {
 
 /// Event subscription
 pub(crate) struct Subscription {
+	name: String,
 	callback: for<'a> fn(
 		&'a HandlerContext<dyn Any>,
 		&'a DocumentOperation,
@@ -218,6 +219,7 @@ impl SubscriptionMap {
 	/// [`Handler::call`] function is never gonna be executed as downcasting will fail.
 	pub(crate) fn insert<H: Handler>(&mut self, ev: HandlerEvent, ctx: HandlerContext<dyn Any>) {
 		let subscription = Subscription {
+			name: std::any::type_name::<H>().to_string(),
 			callback: H::dispatch,
 			context: ctx,
 		};
@@ -325,14 +327,10 @@ impl SubscriptionManager {
 					if let Some(cb) = (sub.callback)(&sub.context, doc) {
 						cb.await
 					} else {
-						fn print_warn<T>(_: T) {
-							println!(
-								"arangodb_events_rs: warn: unable to downcast context for {:?}",
-								std::any::type_name::<T>()
-							)
-						}
-
-						print_warn(sub.context.get_ref())
+						println!(
+							"arangodb_events_rs: warn: unable to downcast context for {:?} handler",
+							sub.name
+						)
 					}
 				}
 			}
